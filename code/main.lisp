@@ -10,6 +10,8 @@
 ;      ((names (mapcar #'closer-mop:slot-definition-name (closer-mop:class-slots instance))))
 ;    `(with-accessors 
 
+;; Better Lexical Scope
+
 (defmacro scope (&body body)
   "This functions as a scope similar to a progn.
    However, you can declare local variables at any point using local,ie,
@@ -29,6 +31,9 @@
        (declare (ignore ,@(cdr ignores))) ;ignore unused temporaries
        ,(first (first result)) ;return the value of the last expression pushed onto the list
        )))
+
+
+;; Quick properties access
 
 (defun nest-list (list)
   "turns a list like (1 2 3 4) into (4 (3 (2 1)))"
@@ -64,7 +69,32 @@
       (t line))))
 
 (defmacro quick-properties (&body body)
+  "allows using class.field syntax inside body"
   (first (recursively-split-property-symbols body)))
+
+
+
+;; Typed defun
+
+(defun extract-symbol-type (sym)
+  "breaks foo@type into just type"
+  (scope
+    (local str (symbol-name sym))
+    (local strs (uiop:split-string str :separator "@"))
+    (local type-str (if (> (length strs) 1) (second strs) "T"))
+    (local type-sym (intern type-str))
+    ; (unless (typep type-sym) (error "~a does not name a type, extracted from ~a" type-sym sym))
+    type-sym))
+
+(defmacro typed-defun (name params &body body)
+  (quick-properties (scope
+    (local return-type 
+
+
+
+ 
+
+      
   
 
 ;;;; Vector
