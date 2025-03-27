@@ -10,6 +10,27 @@
 ;      ((names (mapcar #'closer-mop:slot-definition-name (closer-mop:class-slots instance))))
 ;    `(with-accessors 
 
+(defmacro scope (&body body)
+  "This functions as a scope similar to a progn.
+   However, you can declare local variables at any point using local,ie,
+       (local foo 1)"
+
+  (let ((result '())
+	(ignores '())
+	)
+    (dolist (line body)
+      (if (and (listp line) (equalp (first line) 'local))
+	  (push (cdr line) result)
+	  (let
+	      ((tmp (gensym)))
+	    (push tmp ignores)
+	    (push (list tmp line) result))))
+    `(let* ,(reverse result)
+       (declare (ignore ,@(cdr ignores))) ;ignore unused temporaries
+       ,(first (first result)) ;return the value of the last expression pushed onto the list
+       )))
+      
+
   
 
 ;;;; Vector
@@ -27,15 +48,15 @@
     (sparse :initform (make-vec 'integer) :accessor sparse)
     (dense-to-sparse :initform (make-vec 'integer) :accessor dense-to-sparse)))
 
-(defmacro defun-sset (name params &body body)
-  (unless (equalp (car params) 'self)
-    (error "the first element of params should be called \"self\""))
-  `(defun ,name ,params
-     ;(declaim (ftype (function (sset)) ,name))
-     (with-accessors self ((dense dense)
-			   (sparse sparse)
-			   (dense-to-sparse dense-to-sparse))
-       ,body)))
+;(defmacro defun-sset (name params &body body)
+;  (unless (equalp (car params) 'self)
+;    (error "the first element of params should be called \"self\""))
+;  `(defun ,name ,params
+;     ;(declaim (ftype (function (sset)) ,name))
+;     (with-accessors self ((dense dense)
+;			   (sparse sparse)
+;			   (dense-to-sparse dense-to-sparse))
+;       ,body)))
 
 (defmacro sset-accessors (instance &body body)
   `(with-accessors ((dense dense)
@@ -47,18 +68,13 @@
 (defun make-sset (type)
   (make-instance 'sset :dense (make-vec type)))
 
-;(defun sset-get (self i)
-;  (handler-case
-;      (let ((index (aref (sparse self) i)))
-;	(aref (dense self) index))
-;    (t () nil)))
-
 (defun sset-get (self i)
-  (sset-accessors self
-    (handler-case 
-	(let ((index (aref sparse i)))
-	    (aref dense index))
-	(t () nil)))
+  (sset-accessors
+   self
+   (handler-case 
+       (let ((index (aref sparse i)))
+	 (aref dense index))
+     (t () nil)))
   )
 
 (defun sset-len (self)
