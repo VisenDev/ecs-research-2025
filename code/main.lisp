@@ -4,7 +4,8 @@
 (load #P"asdf.lisp")
 (load #P"closer-mop/closer-mop.asd")
 
-;;;; Util
+;;;; ======================= Util =======================
+
 ;(defmacro with-all-accessors (instance &body body)
 ;  (let*
 ;      ((names (mapcar #'closer-mop:slot-definition-name (closer-mop:class-slots instance))))
@@ -76,51 +77,83 @@
 
 ;; Typed defun
 
-(defun extract-symbol-type (sym)
-  "breaks foo@type into just type"
-  (scope
-    (local str (symbol-name sym))
-    (local strs (uiop:split-string str :separator "@"))
-    (local type-str (if (> (length strs) 1) (second strs) "T"))
-    (local type-sym (intern type-str))
-    ; (unless (typep type-sym) (error "~a does not name a type, extracted from ~a" type-sym sym))
-    type-sym))
+(defun extract-symbol-and-type (sym)
+  "breaks foo@type into just (foo type)"
+  (unless (symbolp sym)
+    (return-from extract-symbol-and-type (list sym 't)))
+  (let*
+      ((str (symbol-name sym))
+       (strs (uiop:split-string str :separator "@"))
+       (type-str (if (> (length strs) 1) (second strs) "T"))
+       (type-sym (intern type-str))
+       (name-sym (intern (first strs))))
+    (list name-sym type-sym)))
 
 (defmacro typed-defun (name params &body body)
-  (quick-properties (scope
-    (local return-type 
+  (let*
+      ((param-meta (mapcar #'extract-symbol-and-type params))
+       (types (mapcar #'second param-meta))
+       (names (mapcar #'first param-meta))
+       (fn-meta (extract-symbol-and-type name))
+       (fn-name (first fn-meta))
+       (return-type (second fn-meta))
+       )
+    `(progn
+       (declaim (ftype (function ,types ,return-type) ,fn-name))
+       (defun ,fn-name ,names ,@body))
+    ))
 
+(typed-defun say-hello@t (count@integer)
+  (loop :for i :from 0 :below count :do (format t "hello")) nil)
 
+(say-hello 1)
 
  
 
-      
-  
+;; Better defun
+(defmacro better-defun (name params &body body)
+  "supports typed arguments using foo@type, foo.bar field lookups, and local variables"
+  (let*
+      ((docs-found? (and (listp body) (< 0 (length body)) (equalp 'string (type-of (first body)))))
+       (docs (if docs-found? (first body) nil))
+       (body (if docs-found? (cdr body) body)))
+  `(typed-defun ,name ,params
+     ,docs
+     (quick-properties
+      (scope
+       ,@body)))))
 
-;;;; Vector
 
-(defun make-vec (type)
+(defmacro orelse (fallback expression)
+  `(handler-case
+      ,expression
+    (t () ,fallback)))
+
+;;;;======================= Vector =======================
+
+(better-defun make-vec (type@symbol)
   (make-array 0 :element-type type :fill-pointer t :adjustable t))
 
-(defun vec-push (self val)
-  (vector-push-extend self val))
+(better-defun vec-push (self@sequence val)
+  (vector-push-extend val self))
 
-;;;; Sparse Set
+(better-defun vec-run-tests ()
+  "tests to make sure vec works"
+  (local vec (make-vec 'integer))
+  (assert (= vec.length -0))
+  (vec-push vec 1)
+  (assert (= vec.length 1))
+  (loop :for i :from 0 :below 10 :do
+    (vec-push vec i))
+  (assert (= vec.length 11))
+  )
+
+;;;; ======================= Sparse Set =======================
 
 (defclass sset () (
     (dense :initarg :dense :accessor dense)
     (sparse :initform (make-vec 'integer) :accessor sparse)
     (dense-to-sparse :initform (make-vec 'integer) :accessor dense-to-sparse)))
-
-;(defmacro defun-sset (name params &body body)
-;  (unless (equalp (car params) 'self)
-;    (error "the first element of params should be called \"self\""))
-;  `(defun ,name ,params
-;     ;(declaim (ftype (function (sset)) ,name))
-;     (with-accessors self ((dense dense)
-;			   (sparse sparse)
-;			   (dense-to-sparse dense-to-sparse))
-;       ,body)))
 
 (defmacro sset-accessors (instance &body body)
   `(with-accessors ((dense dense)
@@ -132,17 +165,11 @@
 (defun make-sset (type)
   (make-instance 'sset :dense (make-vec type)))
 
-(defun sset-get (self i)
-  (sset-accessors
-   self
-   (handler-case 
-       (let ((index (aref sparse i)))
-	 (aref dense index))
-     (t () nil)))
-  )
+(better-defun sset-get (self@sset i@integer)
+  (orelse nil (aref self.dense i)))
 
-(defun sset-len (self)
-  (length (dense self)))
+(better-defun sset-len@integer (self@sset)
+  self.dense.length)
 
 (defun sset-extend (self new-max-index)
   (when (> (length (sparse self)) new-max-index)
@@ -184,7 +211,7 @@
 	  
 
 
-;;;; ECS
+;;;; ======================= ECS =======================
 
 (defstruct ecs 
    (component-types (make-hash-table))
