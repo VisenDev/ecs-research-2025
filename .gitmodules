@@ -1,0 +1,3 @@
+[submodule "code/closer-mop"]
+	path = code/closer-mop
+	url = https://github.com/pcostanza/closer-mop

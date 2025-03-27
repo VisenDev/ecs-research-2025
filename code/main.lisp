@@ -1,6 +1,110 @@
-#!/usr/bin/env sbcl --script
+;;;; Imports and settings
 
-(declaim (optimize (debug 3)))
+(declaim (optimize (debug 3) (safety 3)))
+(load #P"asdf.lisp")
+(load #P"closer-mop/closer-mop.asd")
+
+;;;; Util
+;(defmacro with-all-accessors (instance &body body)
+;  (let*
+;      ((names (mapcar #'closer-mop:slot-definition-name (closer-mop:class-slots instance))))
+;    `(with-accessors 
+
+  
+
+;;;; Vector
+
+(defun make-vec (type)
+  (make-array 0 :element-type type :fill-pointer t :adjustable t))
+
+(defun vec-push (self val)
+  (vector-push-extend self val))
+
+;;;; Sparse Set
+
+(defclass sset () (
+    (dense :initarg :dense :accessor dense)
+    (sparse :initform (make-vec 'integer) :accessor sparse)
+    (dense-to-sparse :initform (make-vec 'integer) :accessor dense-to-sparse)))
+
+(defmacro defun-sset (name params &body body)
+  (unless (equalp (car params) 'self)
+    (error "the first element of params should be called \"self\""))
+  `(defun ,name ,params
+     ;(declaim (ftype (function (sset)) ,name))
+     (with-accessors self ((dense dense)
+			   (sparse sparse)
+			   (dense-to-sparse dense-to-sparse))
+       ,body)))
+
+(defmacro sset-accessors (instance &body body)
+  `(with-accessors ((dense dense)
+		    (sparse sparse)
+		    (dense-to-sparse dense-to-sparse))
+       ,instance
+       ,@body))
+
+(defun make-sset (type)
+  (make-instance 'sset :dense (make-vec type)))
+
+;(defun sset-get (self i)
+;  (handler-case
+;      (let ((index (aref (sparse self) i)))
+;	(aref (dense self) index))
+;    (t () nil)))
+
+(defun sset-get (self i)
+  (sset-accessors self
+    (handler-case 
+	(let ((index (aref sparse i)))
+	    (aref dense index))
+	(t () nil)))
+  )
+
+(defun sset-len (self)
+  (length (dense self)))
+
+(defun sset-extend (self new-max-index)
+  (when (> (length (sparse self)) new-max-index)
+    (return-from sset-extend))
+  (loop :for i from (length (sparse self)) to new-max-index :do
+    (progn
+      (vec-push (sparse self) -1))))
+
+(defun sset-set (self i val)
+  (when (null val)
+    (error "value provided to sset-set cannot be null"))
+  (if (null (sset-get self i))
+    (let*
+	((dense-index (sset-len self))
+	 )
+      (vec-push (dense self) val)
+      (vec-push (dense-to-sparse self) i)
+      (sset-extend self i)
+      (setf (aref (sparse self) i) dense-index)
+      )
+    (let*
+	((dense-index (aref (sparse self) i)))
+      (setf (aref (dense self) dense-index) val))))
+
+(defun sset-remove (self i)
+  (when (null (sset-get self i))
+    (return-from sset-remove))
+  (with-accessors self ()
+  (let*
+      ((dense-index (aref (sparse self) i))
+       (top-i (aref (
+       )
+    (setf (aref (sparse self) i) -1)
+    (
+  
+	   
+
+    
+	  
+
+
+;;;; ECS
 
 (defstruct ecs 
    (component-types (make-hash-table))
