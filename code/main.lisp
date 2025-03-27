@@ -29,8 +29,42 @@
        (declare (ignore ,@(cdr ignores))) ;ignore unused temporaries
        ,(first (first result)) ;return the value of the last expression pushed onto the list
        )))
-      
 
+(defun nest-list (list)
+  "turns a list like (1 2 3 4) into (4 (3 (2 1)))"
+  (when (<= (length list) 2)
+    (return-from nest-list (reverse list)))
+  (list (car (last list)) (nest-list (butlast list))))
+
+(defun split-property-symbol (symbol)
+  "Splits a symbol like foo.bar.bapp into (bapp (bar foo))"
+  (scope
+    (local str (symbol-name symbol))
+    (local substrs (uiop:split-string str :separator "."))
+    (local syms (mapcar #'intern substrs))
+    (format t "~a" syms) 
+    (local symlist (nest-list syms))
+    (format t "~a" symlist) 
+    symlist
+    ))
+
+(defun is-property-symbol? (symbol)
+  (search "." (symbol-name symbol) :test #'string-equal)
+  )
+
+(defun recursively-split-property-symbols (form)
+  (loop :for line :in form :collect
+    (case (type-of line)
+      ('cons
+       (recursively-split-property-symbols line))
+      ('symbol 
+       (if (is-property-symbol? line)
+	   (split-property-symbol line)
+	   line))
+      (t line))))
+
+(defmacro quick-properties (&body body)
+  (first (recursively-split-property-symbols body)))
   
 
 ;;;; Vector
