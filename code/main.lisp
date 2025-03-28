@@ -61,9 +61,9 @@
 (defun recursively-split-property-symbols (form)
   (loop :for line :in form :collect
     (case (type-of line)
-      ('cons
+      (cons
        (recursively-split-property-symbols line))
-      ('symbol 
+      (symbol 
        (if (is-property-symbol? line)
 	   (split-property-symbol line)
 	   line))
@@ -131,22 +131,23 @@
 
 ;;;;======================= Vector =======================
 
-(better-defun make-vec (type@symbol)
+(defun make-vec (type)
   (make-array 0 :element-type type :fill-pointer t :adjustable t))
 
-(better-defun vec-push (self@sequence val)
+(defun vec-push (self val)
   (vector-push-extend val self))
 
-(better-defun vec-run-tests ()
+(defun vec-run-tests ()
   "tests to make sure vec works"
-  (local vec (make-vec 'integer))
-  (assert (= vec.length -0))
-  (vec-push vec 1)
-  (assert (= vec.length 1))
-  (loop :for i :from 0 :below 10 :do
-    (vec-push vec i))
-  (assert (= vec.length 11))
-  )
+  (quick-properties 
+   (let ((vec (make-vec 'integer)))
+     (assert (= vec.length -0))
+     (vec-push vec 1)
+     (assert (= vec.length 1))
+     (loop :for i :from 0 :below 10 :do
+       (vec-push vec i))
+     (assert (= vec.length 11))
+     )))
 
 ;;;; ======================= Sparse Set =======================
 
@@ -194,16 +195,16 @@
 	((dense-index (aref (sparse self) i)))
       (setf (aref (dense self) dense-index) val))))
 
-(defun sset-remove (self i)
-  (when (null (sset-get self i))
-    (return-from sset-remove))
-  (with-accessors self ()
-  (let*
-      ((dense-index (aref (sparse self) i))
-       (top-i (aref (
-       )
-    (setf (aref (sparse self) i) -1)
-    (
+;(defun sset-remove (self i)
+;  (when (null (sset-get self i))
+;    (return-from sset-remove))
+;  (with-accessors self ()
+;  (let*
+;      ((dense-index (aref (sparse self) i))
+;       (top-i (aref (
+;       )
+;    (setf (aref (sparse self) i) -1)
+;    (
   
 	   
 
@@ -258,4 +259,4 @@
 (define-component *ecs* 'name 'integer)
 (define-component *ecs* 'id 'integer)
 (format t "~a~%" *ecs*)
-(set-componet *ecs* 0 'age 
+(set-componet *ecs* 0 'age )
