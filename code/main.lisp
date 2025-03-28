@@ -8,12 +8,12 @@
 ;;;;======================= Vector =======================
 
 (defun make-vec (type)
-    (make-array 0 :element-type type :fill-pointer t :adjustable t))
+  (make-array 0 :element-type type :fill-pointer t :adjustable t))
 
 (defun vec-push (self val)
-    (vector-push-extend val self))
+  (vector-push-extend val self))
 
-(defun vec-run-tests ()
+(defun test-vec ()
   "tests to make sure vec works"
   (quick-properties 
     (let ((vec (make-vec 'integer)))
