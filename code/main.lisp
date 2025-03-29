@@ -1,9 +1,14 @@
 ;;;; ===================== Imports and settings ====================
 
 (declaim (optimize (debug 3) (safety 3)))
-(load #p"asdf.lisp")
-(load #p"closer-mop/closer-mop.asd")
-(load #p"macros.lisp")
+
+(eval-when (:compile-toplevel :load-toplevel :execute) 
+  (load #p"asdf/asdf.lisp")
+  (load #p"closer-mop/closer-mop.asd")
+
+  (load #p"macros.lisp")
+  (load #p"testing.lisp")
+  )
 
 ;;;;======================= Vector =======================
 
@@ -13,16 +18,16 @@
 (defun vec-push (self val)
   (vector-push-extend val self))
 
-(defun test-vec ()
-  "tests to make sure vec works"
+(deftest
+  test-vec
   (quick-properties 
     (let ((vec (make-vec 'integer)))
-      (assert (= vec.length -0))
+      (testing-expect (= vec.length -0))
       (vec-push vec 1)
-      (assert (= vec.length 1))
+      (testing-expect (= vec.length 1))
       (loop :for i :from 0 :below 10 :do
             (vec-push vec i))
-      (assert (= vec.length 11))
+      (testing-expect (= vec.length 11))
       )))
 
 ;;;; ======================= Sparse Set =======================
@@ -57,8 +62,8 @@
 
 (defun sset-extend (self new-max-index)
   (quick-properties
-    (unless (< self.sparse.len new-max-index)
-      (loop :for i :from self.sparse.len :to new-max-index :do
+    (unless (< self.sparse.length new-max-index)
+      (loop :for i :from self.sparse.length :to new-max-index :do
             (vec-push self.sparse -1))
       )))
 
@@ -67,7 +72,7 @@
     (assert (not val.null))
     (if (null (sset-get self i))
       (let* ((new-dense-index (sset-len self))
-         )
+             )
         (vec-push self.dense val)
         (vec-push self.dense-to-sparse i)
         (sset-extend self i)
@@ -75,20 +80,20 @@
         )
       (let*
         ((dense-index (aref self.sparse ))
-        )
+         )
         (setf (aref (dense self) dense-index) val))
       )))
 
-					;(defun sset-remove (self i)
-					;  (when (null (sset-get self i))
-					;    (return-from sset-remove))
-					;  (with-accessors self ()
-					;  (let*
-					;      ((dense-index (aref (sparse self) i))
-					;       (top-i (aref (
-					;       )
-					;    (setf (aref (sparse self) i) -1)
-					;    (
+;(defun sset-remove (self i)
+;  (when (null (sset-get self i))
+;    (return-from sset-remove))
+;  (with-accessors self ()
+;  (let*
+;      ((dense-index (aref (sparse self) i))
+;       (top-i (aref (
+;       )
+;    (setf (aref (sparse self) i) -1)
+;    (
 
 
 
@@ -100,10 +105,10 @@
 
 (defclass ecs ()
   ((component-types :initform (make-hash-table) :accessor component-types)
-  (components :initform (make-hash-table) :accessor components)
-  (ids :initform '() :accessor ids)
-  (highest-id :initform 0 :accessor highest-id)
-  ))
+   (components :initform (make-hash-table) :accessor components)
+   (ids :initform '() :accessor ids)
+   (highest-id :initform 0 :accessor highest-id)
+   ))
 
 (defun get-type-of-component (ecs component-symbol)
   (quick-properties
@@ -127,17 +132,19 @@
 (defun set-component (ecs component-symbol value)
   (unless (equalp (component-type ecs component-symbol) (type-of value))
     (error "component ~a expects type ~a but was given value of type ~a"
-	   component-symbol
-	   (component-type ecs component-symbol)
-	   (type-of value)
-	   )
+           component-symbol
+           (component-type ecs component-symbol)
+           (type-of value)
+           )
     )
   )
 
 
-(defvar *ecs* (make-instance 'ecs))
-(format t "~a~%" *ecs*)
-(define-component *ecs* 'name 'integer)
-(define-component *ecs* 'id 'integer)
-(format t "~a~%" *ecs*)
+(defun main()
+  (defparameter *ecs* (make-instance 'ecs))
+  (format t "~a~%" *ecs*)
+  (define-component *ecs* 'name 'integer)
+  (define-component *ecs* 'id 'integer)
+  (format t "~a~%" *ecs*)
+  )
 ;(set-componet *ecs* 0 'id)

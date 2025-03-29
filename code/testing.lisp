@@ -1,8 +1,53 @@
 (eval-when (:compile-toplevel :load-toplevel :execute) 
-
-  (defvar *tests* '())
-  (defvar *test-results* '())
   (declaim (optimize (debug 3) (safety 3)))
+
+  ;;;; ===========ANSI IO===========
+  (defun ansi-esc (escape-code)
+    (concatenate 'string (string (name-char "esc")) escape-code))
+
+  (defun concat-symbols (&rest symbols)
+    (intern (apply 'concatenate 'string (mapcar #'symbol-name symbols))))
+
+  (defconstant +ansi-reset+   (ansi-esc "[0m"))
+
+  (defmacro def-ansi-color (name escape-sequence)
+    (let*
+      ((constant-name (concat-symbols '+ansi- name '+))
+       (function-name (concat-symbols 'print- name))
+       )
+      `(progn
+         (defconstant ,constant-name (ansi-esc ,escape-sequence))
+         (defun ,function-name (fmt &rest args)
+           (format t "~a" ,constant-name)
+           (apply 'format t fmt args)
+           (format t "~a" +ansi-reset+))
+         )
+      )
+    )
+
+  (def-ansi-color red     "[31m")
+  (def-ansi-color green   "[32m")
+  (def-ansi-color yellow  "[33m")
+  (def-ansi-color blue    "[34m")
+  (def-ansi-color magenta "[35m")
+  (def-ansi-color cyan    "[36m")
+
+  (defun print-header (string)
+    (let*
+      ((min-width 40)
+       (len (length string))
+       (required-pad (- min-width len))
+       (left-pad (floor (/ required-pad 2)))
+       (right-pad (floor (/ (1+ required-pad) 2)))
+       )
+      (dotimes (_ left-pad) (format t "="))
+      (print-yellow string)
+      (dotimes (_ right-pad) (format t "="))
+      (format t "~%")
+    ))
+
+  ;;;; ===========TESTING===========
+  (defvar *tests* '())
 
   (defclass test-result ()
     ((name :accessor name :initarg :name)
@@ -32,39 +77,14 @@
       )
     )
 
-  ;  (defun print-test-result ()
-  ;    (let*
-  ;      ((total-successes 0)
-  ;       (total-failures 0)
-  ;       )
-  ;      (dolist (result *test-results*)
-  ;        (let ((s (successes result))
-  ;              (f (failures result))
-  ;              (name (name result)))
-  ;          (incf total-successes s)
-  ;          (incf total-failures f)
-  ;          (if (> f 0)
-  ;            (format t "Test ~a failed with ~a out of ~a failed conditions~%"
-  ;                    name f (+ f s))
-  ;            (format t "Test ~a succeeded with ~a out of ~a succeeded conditions~%"
-  ;                    name s (+ f s))
-  ;            )
-  ;          )
-  ;        )
-  ;      (format t "~%")
-  ;      (format t "TOTAL SUCCESSES: ~a~%" total-successes)
-  ;      (format t "TOTAL FAILURES ~a~%" total-failures)
-  ;      )
-  ;    )
-
   (defun run-tests ()
-    (format t "RUNNING TESTS...~%~%")
+    (print-header "RUNNING TESTS")
     (let*
       ((total-successes 0)
        (total-failures 0)
        )
       (dolist (test *tests*)
-        (format t "Starting test ~20a...   " test)
+        (print-magenta "  > ~36a" test)
         (let*
           ((result (funcall test))
            (s (successes result))
@@ -73,18 +93,16 @@
           (incf total-successes s)
           (incf total-failures f)
           (if (> f 0)
-            (format t "   failed with ~a out of ~a failed conditions~%"
-                    f (+ f s))
-            (format t "   succeeded with ~a out of ~a succeeded conditions~%"
-                    s (+ f s))
+            (print-red   "[FAIL]    ~a/~a~%" f (+ f s))
+            (print-green "[SUCCESS] ~a/~a~%" s (+ f s))
             )
           )
         )
       (format t "~%")
-      (format t "TOTAL SUCCESSES: ~a~%" total-successes)
-      (format t "TOTAL FAILURES ~a~%" total-failures)
+      (print-header "RESULTS")
+      (print-green "  > [TOTAL SUCCESSES] ~a~%" total-successes)
+      (print-red   "  > [TOTAL  FAILURES] ~a~%" total-failures)
       )
     )
-
   )
 
