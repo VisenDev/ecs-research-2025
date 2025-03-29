@@ -2,13 +2,17 @@
 
 (declaim (optimize (debug 3) (safety 3)))
 
+
 (eval-when (:compile-toplevel :load-toplevel :execute) 
-  (load #p"asdf/asdf.lisp")
+
+  (unless (find-package :asdf)
+    (load #p"asdf/asdf.lisp"))
   (load #p"closer-mop/closer-mop.asd")
 
   (load #p"macros.lisp")
   (load #p"testing.lisp")
   )
+
 
 ;;;;======================= Vector =======================
 
