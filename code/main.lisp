@@ -2,16 +2,16 @@
 
 (declaim (optimize (debug 3) (safety 3)))
 
-
-(eval-when (:compile-toplevel :load-toplevel :execute) 
-
-  (unless (find-package :asdf)
-    (load #p"asdf/asdf.lisp"))
-  (load #p"closer-mop/closer-mop.asd")
-
-  (load #p"macros.lisp")
-  (load #p"testing.lisp")
-  )
+;
+;(eval-when (:compile-toplevel :load-toplevel :execute) 
+;
+;  (unless (find-package :asdf)
+;    (load #p"asdf/asdf.lisp"))
+;  (load #p"closer-mop/closer-mop.asd")
+;
+;  (load #p"macros.lisp")
+;  (load #p"testing.lisp")
+;  )
 
 
 ;;;;======================= Vector =======================
@@ -42,6 +42,7 @@
    (dense-to-sparse :initform (make-vec 'integer) :accessor dense-to-sparse)
    ))
 
+
 (defmacro sset-accessors (instance &body body)
   `(with-accessors ((dense dense)
                     (sparse sparse)
@@ -55,9 +56,10 @@
   (make-instance 'sset :dense (make-vec type))
   )
 
+
 (defun sset-get (self i)
   (quick-properties
-    (orelse nil (aref self.dense i))
+    (orelse nil (aref self.dense (aref self.sparse i)))
     ))
 
 (defun sset-len (self)
@@ -66,26 +68,27 @@
 
 (defun sset-extend (self new-max-index)
   (quick-properties
-    (unless (< self.sparse.length new-max-index)
+    (when (< self.sparse.length new-max-index)
       (loop :for i :from self.sparse.length :to new-max-index :do
             (vec-push self.sparse -1))
       )))
 
 (defun sset-set (self i val)
   (quick-properties
-    (assert (not val.null))
     (if (null (sset-get self i))
-      (let* ((new-dense-index (sset-len self))
-             )
+      (let*
+        ((new-dense-index (sset-len self))
+         )
         (vec-push self.dense val)
         (vec-push self.dense-to-sparse i)
         (sset-extend self i)
         (setf (aref self.sparse i) new-dense-index)
         )
       (let*
-        ((dense-index (aref self.sparse ))
+        ((dense-index (aref self.sparse i))
          )
-        (setf (aref (dense self) dense-index) val))
+        (setf (aref (dense self) dense-index) val)
+        )
       )))
 
 ;(defun sset-remove (self i)
@@ -99,6 +102,28 @@
 ;    (setf (aref (sparse self) i) -1)
 ;    (
 
+
+(deftest
+  test-sset
+  (let
+    ((sset (make-sset 'symbol)))
+      (testing-expect (= (sset-len sset) 0))
+
+      (sset-set sset 10 'foo)
+      (testing-expect (= (sset-len sset) 1))
+      (testing-expect (eq (sset-get sset 10) 'foo))
+
+      (sset-set sset 10 'bar)
+      (testing-expect (= (sset-len sset) 1))
+      (testing-expect (eq (sset-get sset 10) 'bar))
+
+      (sset-set sset 100 'var)
+      (testing-expect (= (sset-len sset) 2))
+      (testing-expect (eq (sset-get sset 10) 'bar))
+      (testing-expect (eq (sset-get sset 100) 'var))
+      (testing-expect (eq (sset-get sset 100) 'vnr))
+    )
+  )
 
 
 
@@ -121,11 +146,11 @@
 
 (defun define-component (ecs component-symbol component-type)
   (quick-properties
-    (unless (null (get-type-of-component ecs component-symbol))
-      (error "component ~a already defined as having type ~a"
-             component-symbol
-             (get-type-of-component ecs component-symbol)
-             ))
+    ;(unless (null (get-type-of-component ecs component-symbol))
+    ;  (error "component ~a already defined as having type ~a"
+    ;         component-symbol
+    ;         (get-type-of-component ecs component-symbol)
+    ;         ))
     (setf (gethash component-symbol ecs.component-types ecs) component-type)
     (setf
       (gethash component-symbol ecs.components) 
@@ -134,21 +159,22 @@
     ))
 
 (defun set-component (ecs component-symbol value)
-  (unless (equalp (component-type ecs component-symbol) (type-of value))
+  (unless (equalp (get-type-of-component ecs component-symbol) (type-of value))
     (error "component ~a expects type ~a but was given value of type ~a"
            component-symbol
-           (component-type ecs component-symbol)
+           (get-type-of-component ecs component-symbol)
            (type-of value)
            )
     )
   )
 
 
+(defparameter *ecs* (make-instance 'ecs))
 (defun main()
-  (defparameter *ecs* (make-instance 'ecs))
   (format t "~a~%" *ecs*)
   (define-component *ecs* 'name 'integer)
   (define-component *ecs* 'id 'integer)
   (format t "~a~%" *ecs*)
   )
 ;(set-componet *ecs* 0 'id)
+(format t "main loaded~%")
