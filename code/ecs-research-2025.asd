@@ -4,9 +4,9 @@
   :version "0.0.1"
   :author "Robert Burnett"
   :license "MIT"
-;  :pathname #p"./" 
-  :serial t
+  ;:serial t
   :components
   ((:file "macros")
    (:file "testing")
-   (:file "main")))
+   (:file "main" :depends-on ("macros" "testing")))
+  )

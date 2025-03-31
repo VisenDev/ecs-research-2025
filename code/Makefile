@@ -1,8 +1,5 @@
 all: *.lisp Makefile
-	sbcl --disable-debugger --script main.lisp
-
-compile: *.lisp Makefile
-	./build.lisp
+	sbcl --eval "(progn (asdf:load-system :ecs-research-2025) (sb-ext:save-lisp-and-die \"a.out\" :toplevel #'main :executable t))"
 
 .PHONY test:
 test: *.lisp
@@ -10,4 +7,4 @@ test: *.lisp
 
 .PHONY clean:
 clean:
-	@trash *.fasl *.fas
+	@trash *.fasl a.out

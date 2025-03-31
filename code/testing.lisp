@@ -1,5 +1,7 @@
   (declaim (optimize (debug 3) (safety 3)))
 
+
+
   ;;;; ===========ANSI IO===========
   (defmacro eval-always (&body body)
     `(eval-when (:compile-toplevel :load-toplevel :execute) 
@@ -38,7 +40,7 @@
   (def-ansi-color magenta "[35m")
   (def-ansi-color cyan    "[36m")
 
-  (defun print-header (string)
+  (defun print-header (string &optional (char #\=) (color +ansi-yellow+))
     (let*
       ((min-width 50)
        (len (length string))
@@ -46,13 +48,34 @@
        (left-pad (floor (/ required-pad 2)))
        (right-pad (floor (/ (1+ required-pad) 2)))
        )
-      (dotimes (_ left-pad) (format t "="))
-      (print-yellow string)
-      (dotimes (_ right-pad) (format t "="))
+      (dotimes (_ left-pad) (format t "~a" char))
+      (format t "~a~a~a" color string +ansi-reset+)
+      (dotimes (_ right-pad) (format t "~a" char))
+      (format t "~%")
+      ))
+
+
+  (defun print-subheader (string)
+    (let*
+      ((min-width 50)
+       (len (length string))
+       (required-pad (- min-width len))
+       (left-pad (floor (/ required-pad 2)))
+       (right-pad (floor (/ (1+ required-pad) 2)))
+       )
+      (dotimes (_ left-pad) (format t "-"))
+      (print-magenta string)
+      (dotimes (_ right-pad) (format t "-"))
       (format t "~%")
       ))
 
   ;;;; ===========TESTING===========
+
+
+  (defparameter *test-results* '())
+  (defparameter *tests* '())
+  (defparameter *total-pass* 0)
+  (defparameter *total-fail* 0)
 
   (defclass test-case ()
     ((result :accessor result :initarg :result :initform (error "mandatory initialization"))
@@ -64,15 +87,17 @@
      ))
 
   (defun print-test-case (case)
+    (format t "~10a  ~30a  " (expected case) (form case))
     (if (equalp (result case) (expected case))
       (progn
         (incf *total-pass*)
+        (print-green "[PASS]~%")
         )
       (progn
         (incf *total-fail*)
-        (format t "    Test case ~a failed, expected ~a, got ~a~%"
-                (form case) (expected case) (result case))
-        (unless (and (null (line case)) (file case))
+        (print-red "[FAIL]")
+        (format t " --->  ~a~%" (result case))
+        (unless (and (null (line case)) (null (file case)))
           (format t "        See ~a line ~a~%" (file case) (line case))
           )
         )
@@ -87,15 +112,11 @@
          :form (quote ,form)
          :result ,form
          :expected ,expected
-         :file SB-EXT:COMPILE-FILE-LINE
-         :line SB-EXT:COMPILE-FILE-POSITION
+         :file nil ;#.(or *compile-file-truename* *load-truename*) ;nil ;SB-EXT:COMPILE-FILE-LINE
+         :line nil ;SB-EXT:COMPILE-FILE-POSITION
          ))
     )
 
-  (defvar *test-results*'())
-  (defvar *tests*'())
-  (defvar *total-pass* 0)
-  (defvar *total-fail* 0)
 
   (defmacro testing-expect (form)
     `(push (define-test-case ,form t) *test-results*))
@@ -104,18 +125,30 @@
     `(push (define-test-case ,form ,expected) *test-results*))
 
   (defmacro deftest (name &body body)
-    (push name *tests*)
+    (setf *tests* (adjoin name *tests*))
     `(defun ,name ()
        ,@body
        ))
     
-
   (defun run-tests ()
     (print-header "RUNNING TESTS")
-    (dolist (test *tests*)
-      (print-magenta "  > ~33a" test)
-      (funcall test)
-      ))
+    (let* ((*test-results* '())
+           (*total-pass* 0)
+           (*total-fail* 0)
+           )
+      (dolist (test *tests*)
+        ;(print-header (format nil "Beginning test section ~a" test) #\  +ansi-magenta+)
+        (print-magenta "SECTION ~a~%" test)
+        (funcall test)
+        )
+      (print-header "RESULTS")
+      (format t "Total passing test cases:")
+      (print-green "~a~%" *total-pass*)
+      (format t "Total failing test cases:")
+      (print-red "~a~%" *total-fail*)
+      (print-header "TESTING DONE")
+      )
+    )
 
 
 

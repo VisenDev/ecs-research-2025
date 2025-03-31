@@ -91,6 +91,42 @@
         )
       )))
 
+(declaim (ftype (function (sset fixnum) t) sset-remove))
+(defun sset-remove (self i)
+  (quick-properties
+    ;(when (= 1 self.dense.length)
+    ;  (setf (aref self.sparse i) nil)
+    ;  (return-from sset-remove (vector-pop self.dense)))
+
+    (let* ((top-dense-index (1- self.dense.length))
+           (tmp1 (assert (= self.dense.length self.dense-to-sparse.length)))
+           (top-sparse-index (aref self.dense-to-sparse top-dense-index))
+           (top-value (aref self.dense top-dense-index))
+           (deleted-dense-index (aref self.sparse i))
+           (tmp2 (assert (not (null deleted-dense-index))))
+           (deleted-value (aref self.dense deleted-dense-index))
+           )
+      (declare (ignore tmp1 tmp2))
+
+      ;;replace deleted index with top value
+      (setf (aref self.dense deleted-dense-index) top-value)
+      
+      ;;update top-value's sparse index to its new location
+      (setf (aref self.sparse top-sparse-index) deleted-dense-index)
+
+      ;;remove the deleted value's sparse index
+      (setf (aref self.sparse i) nil)
+
+      ;;remove the top element of the dense array
+      (vector-pop self.dense)
+      (vector-pop self.dense-to-sparse)
+
+      ;;return deleted value
+      deleted-value
+      )))
+
+
+
 ;(defun sset-remove (self i)
 ;  (when (null (sset-get self i))
 ;    (return-from sset-remove))
@@ -115,13 +151,34 @@
 
       (sset-set sset 10 'bar)
       (testing-expect (= (sset-len sset) 1))
-      (testing-expect (eq (sset-get sset 10) 'bar))
+      (testing-expect-equal (sset-get sset 10) 'bar)
 
       (sset-set sset 100 'var)
-      (testing-expect (= (sset-len sset) 2))
-      (testing-expect (eq (sset-get sset 10) 'bar))
-      (testing-expect (eq (sset-get sset 100) 'var))
-      (testing-expect (eq (sset-get sset 100) 'vnr))
+      (testing-expect-equal (sset-len sset) 2)
+      (testing-expect-equal (sset-get sset 10) 'bar)
+      (testing-expect-equal (sset-get sset 100) 'var)
+
+      (sset-remove sset 10)
+      (testing-expect-equal (sset-len sset) 1)
+      (testing-expect-equal (sset-get sset 100) 'var)
+
+      (sset-set sset 1 'hello)
+      (sset-set sset 2 'world)
+      (sset-set sset 3 'asdf)
+      (sset-set sset 4 'john)
+      (testing-expect-equal (sset-len sset) 5)
+      (testing-expect-equal (sset-get sset 100) 'var)
+      (testing-expect-equal (sset-get sset 1) 'hello)
+      (testing-expect-equal (sset-get sset 2) 'world)
+      (testing-expect-equal (sset-get sset 3) 'asdf)
+      (testing-expect-equal (sset-get sset 4) 'john)
+
+      (sset-remove sset 3)
+      (testing-expect-equal (sset-len sset) 4)
+      (testing-expect-equal (sset-get sset 100) 'var)
+      (testing-expect-equal (sset-get sset 1) 'hello)
+      (testing-expect-equal (sset-get sset 2) 'world)
+      (testing-expect-equal (sset-get sset 4) 'john)
     )
   )
 
@@ -167,7 +224,6 @@
            )
     )
   )
-
 
 (defparameter *ecs* (make-instance 'ecs))
 (defun main()
