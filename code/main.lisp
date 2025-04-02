@@ -192,38 +192,90 @@
 (defclass ecs ()
   ((component-types :initform (make-hash-table) :accessor component-types)
    (components :initform (make-hash-table) :accessor components)
-   (ids :initform '() :accessor ids)
-   (highest-id :initform 0 :accessor highest-id)
+   (free-ids :initform (make-vec 'fixnum) :accessor free-ids)
+   (highest-id :initform 0 :accessor highest-id :type fixnum)
    ))
 
-(defun get-type-of-component (ecs component-symbol)
+(declaim (ftype (function (ecs) fixnum) new-entity))
+(defun new-entity (ecs)
+  "Creates a new entity and returns its id"
   (quick-properties
-    (gethash component-symbol ecs.component-types)
-    ))
+    (when (<= ecs.free-ids.length 0)
+      (let* ((old-highest ecs.highest-id)
+             (new-highest (1+ (* 2 old-highest)))
+             )
+        (loop :for id :from old-highest :below new-highest
+              :do (vec-push ecs.free-ids id))
+        (setf ecs.highest-id new-highest)
+        ))
+    (vector-pop ecs.free-ids))
+  )
 
+(declaim (ftype (function (ecs keyword) symbol) get-type-of-component))
+(defun get-type-of-component (self component-symbol)
+    (gethash component-symbol (component-types self))
+    )
+
+(declaim (ftype (function (ecs keyword symbol) t) define-component))
 (defun define-component (ecs component-symbol component-type)
-  (quick-properties
-    ;(unless (null (get-type-of-component ecs component-symbol))
-    ;  (error "component ~a already defined as having type ~a"
-    ;         component-symbol
-    ;         (get-type-of-component ecs component-symbol)
-    ;         ))
-    (setf (gethash component-symbol ecs.component-types ecs) component-type)
+  (assert (not (null component-type)))
+  (assert (not (null component-symbol)))
+  ;(quick-properties
+  ;  (unless (null (get-type-of-component ecs component-symbol))
+  ;    (error "component ~a already defined as having type ~a instead of ~a"
+  ;           component-symbol
+  ;           (get-type-of-component ecs component-symbol)
+  ;           component-type
+  ;           ))
+    ;(print-magenta "The value of component-type is ~a~%~%"  component-type)
+    ;(print-magenta "The value of component-symbol is ~a~%~%"  component-symbol)
+    (setf (gethash component-symbol (component-types ecs)) component-type)
+    (assert (equalp component-type (gethash component-symbol (component-types ecs))))
+    (assert (equalp component-type (get-type-of-component ecs component-symbol)))
     (setf
-      (gethash component-symbol ecs.components) 
-      (make-array 16 :element-type component-type :fill-pointer t :adjustable t)
+      (gethash component-symbol (components ecs)) 
+      (make-sset component-type)
+      ;(make-array 16 :element-type component-type :fill-pointer t :adjustable t)
       )
-    ))
+    
+    (assert (equalp component-type (gethash component-symbol (component-types ecs))))
+    (assert (equalp component-type (get-type-of-component ecs component-symbol)))
+  )
 
-(defun set-component (ecs component-symbol value)
-  (unless (equalp (get-type-of-component ecs component-symbol) (type-of value))
-    (error "component ~a expects type ~a but was given value of type ~a"
-           component-symbol
-           (get-type-of-component ecs component-symbol)
-           (type-of value)
-           )
+(declaim (ftype (function (ecs fixnum keyword t) t) set-component))
+(defun set-component (self entity component-symbol value)
+  (assert (not (null (get-type-of-component self component-symbol))))
+  ;(unless (equalp (get-type-of-component self component-symbol) (type-of value))
+  ;  (error "component ~a expects type ~a but was given value of type ~a"
+  ;         component-symbol
+  ;         (get-type-of-component self component-symbol)
+  ;         (type-of value)
+  ;         )
+  ;  )
+  (quick-properties
+    (sset-set (gethash component-symbol self.components) entity value)
     )
   )
+
+
+(deftest
+  ecs
+  (let* ((ecs (make-instance 'ecs))
+         (entity (new-entity ecs))
+         )
+    (define-component ecs :name 'string)
+    (testing-expect-equal (get-type-of-component ecs :name) 'string)
+
+    (define-component ecs :health 'number)
+    (testing-expect-equal (get-type-of-component ecs :health) 'number)
+
+    (set-component ecs entity :health 10)
+    (set-component ecs entity :name "john")
+
+    (testing-expect-error (error "error"))
+    )
+  )
+
 
 (defparameter *ecs* (make-instance 'ecs))
 (defun main()
@@ -233,4 +285,4 @@
   (format t "~a~%" *ecs*)
   )
 ;(set-componet *ecs* 0 'id)
-(format t "main loaded~%")
+;(format t "main loaded~%")

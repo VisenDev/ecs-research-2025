@@ -105,13 +105,25 @@
     case
     )
 
-  (defmacro define-test-case (form expected)
+  (defmacro define-test-case (form expected) 
     `(print-test-case
       (make-instance
          'test-case
          :form (quote ,form)
          :result ,form
          :expected ,expected
+         :file nil ;#.(or *compile-file-truename* *load-truename*) ;nil ;SB-EXT:COMPILE-FILE-LINE
+         :line nil ;SB-EXT:COMPILE-FILE-POSITION
+         ))
+    )
+
+  (defmacro define-erroring-test-case (form expect-error) 
+    `(print-test-case
+      (make-instance
+         'test-case
+         :form (quote ,form)
+         :result (handler-case (progn ,form 'no-error-occurs) (t () 'error-occurs))
+         :expected (if ,expect-error 'error-occurs 'no-error-occurs)
          :file nil ;#.(or *compile-file-truename* *load-truename*) ;nil ;SB-EXT:COMPILE-FILE-LINE
          :line nil ;SB-EXT:COMPILE-FILE-POSITION
          ))
@@ -124,8 +136,17 @@
   (defmacro testing-expect-equal (form expected)
     `(push (define-test-case ,form ,expected) *test-results*))
 
+  (defmacro testing-expect-error (form)
+    `(push (define-erroring-test-case ,form t)  *test-results*))
+
+  (defmacro testing-expect-no-error (form)
+    `(push (define-erroring-test-case ,form nil)  *test-results*))
+
   (defmacro deftest (name &body body)
     (setf *tests* (adjoin name *tests*))
+    (unless (symbolp name)
+      (error "Expected deftest name to be a symbol, found a ~a of value \"~a\""
+             (type-of name) name))
     `(defun ,name ()
        ,@body
        ))
