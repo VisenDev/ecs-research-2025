@@ -2,17 +2,6 @@
 
 (declaim (optimize (debug 3) (safety 3)))
 
-;
-;(eval-when (:compile-toplevel :load-toplevel :execute) 
-;
-;  (unless (find-package :asdf)
-;    (load #p"asdf/asdf.lisp"))
-;  (load #p"closer-mop/closer-mop.asd")
-;
-;  (load #p"macros.lisp")
-;  (load #p"testing.lisp")
-;  )
-
 
 ;;;;======================= Vector =======================
 
@@ -191,7 +180,12 @@
 ;;;; ======================= ECS =======================
 
 (defclass ecs ()
-  ((component-types :initform (make-hash-table) :accessor component-types)
+  ((component-types :initform (make-hash-table)
+                    :accessor component-types
+                    :documentation "maps each component-symbol to its datatype")
+   (component-owners :initform (make-hash-table)
+                     :accessor component-owners
+                     :documentation "maps each component-symbol to entities with that type")
    (components :initform (make-hash-table) :accessor components)
    (free-ids :initform (make-vec 'fixnum) :accessor free-ids)
    (highest-id :initform 0 :accessor highest-id :type fixnum)
@@ -288,17 +282,21 @@
 
       (loop :for i :from 0 :below (length ids)
             :for id :in ids
-            :do (progn
-                  (set-component ecs id :health i)
-                  (set-component ecs id :name "bob")
-                  ))
+            :do (set-component ecs id :health i)
+            )
+      (loop :for i :from 0 :below (length ids)
+            :for id :in ids
+            :do (set-component ecs id :name "bob")
+            )
 
       (loop :for i :from 0 :below (length ids)
             :for id :in ids
-            :do (progn
-                  (testing-expect-equal (get-component ecs id :health) i)
-                  (testing-expect-equal (get-component ecs id :name) "bob")
-                  ))
+            :do (testing-expect-equal (get-component ecs id :health) i)
+            )
+      (loop :for i :from 0 :below (length ids)
+            :for id :in ids
+            :do (testing-expect-equal (get-component ecs id :name) "bob")
+            )
     )
   )
   )
