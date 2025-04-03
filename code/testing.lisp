@@ -72,10 +72,10 @@
   ;;;; ===========TESTING===========
 
 
-  (defparameter *test-results* '())
-  (defparameter *tests* '())
-  (defparameter *total-pass* 0)
-  (defparameter *total-fail* 0)
+  (defvar *test-results* '())
+  (defvar *tests* '())
+  (defvar *total-pass* 0)
+  (defvar *total-fail* 0)
 
   (defclass test-case ()
     ((result :accessor result :initarg :result :initform (error "mandatory initialization"))
@@ -87,16 +87,18 @@
      ))
 
   (defun print-test-case (case)
-    (format t "~10a  ~30a  " (expected case) (form case))
+    (format t "~46a " (form case))
+    (print-yellow "-->  ")
     (if (equalp (result case) (expected case))
       (progn
         (incf *total-pass*)
-        (print-green "[PASS]~%")
+        (print-green "[~a]~%" (result case))
+        ;(print-green "[PASS]~%")
         )
       (progn
         (incf *total-fail*)
-        (print-red "[FAIL]")
-        (format t " --->  ~a~%" (result case))
+        (print-red "[~a]" (result case))
+        (print-red "   (expected [~a])~%" (expected case))
         (unless (and (null (line case)) (null (file case)))
           (format t "        See ~a line ~a~%" (file case) (line case))
           )
