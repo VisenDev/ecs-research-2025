@@ -59,8 +59,9 @@
 
 (defun sset-get (self i)
   (quick-properties
-    (orelse nil (aref self.dense (aref self.sparse i)))
-    ))
+    (aref self.dense (aref self.sparse i))
+    )
+  )
 
 (defun sset-len (self)
   (quick-properties self.dense.length)
@@ -75,7 +76,7 @@
 
 (defun sset-set (self i val)
   (quick-properties
-    (if (null (sset-get self i))
+    (if (null (orelse nil (sset-get self i)))
       (let*
         ((new-dense-index (sset-len self))
          )
@@ -200,15 +201,21 @@
 (defun new-entity (ecs)
   "Creates a new entity and returns its id"
   (quick-properties
-    (when (<= ecs.free-ids.length 0)
+    (if (<= ecs.free-ids.length 0)
       (let* ((old-highest ecs.highest-id)
-             (new-highest (1+ (* 2 old-highest)))
+             (new-highest (* 2 (1+ old-highest)))
              )
         (loop :for id :from old-highest :below new-highest
               :do (vec-push ecs.free-ids id))
         (setf ecs.highest-id new-highest)
-        ))
-    (vector-pop ecs.free-ids))
+        (new-entity ecs)
+        ;old-highest
+        ;(format t "adding new ids: ~a~%" ecs.free-ids)
+        ;0
+        )
+        (vector-pop ecs.free-ids)
+    )
+  )
   )
 
 (declaim (ftype (function (ecs keyword) symbol) get-type-of-component))
@@ -244,17 +251,13 @@
 
 (declaim (ftype (function (ecs fixnum keyword t) t) set-component))
 (defun set-component (self entity component-symbol value)
-  (assert (not (null (get-type-of-component self component-symbol))))
-  ;(unless (equalp (get-type-of-component self component-symbol) (type-of value))
-  ;  (error "component ~a expects type ~a but was given value of type ~a"
-  ;         component-symbol
-  ;         (get-type-of-component self component-symbol)
-  ;         (type-of value)
-  ;         )
-  ;  )
-  (quick-properties
-    (sset-set (gethash component-symbol self.components) entity value)
-    )
+  (assert (typep value (get-type-of-component self component-symbol)))
+  (sset-set (gethash component-symbol (components self)) entity value)
+  )
+
+(declaim (ftype (function (ecs fixnum keyword) t) get-component))
+(defun get-component (self entity component-symbol)
+  (sset-get (gethash component-symbol (components self)) entity)
   )
 
 
@@ -263,6 +266,7 @@
   (let* ((ecs (make-instance 'ecs))
          (entity (new-entity ecs))
          )
+    (declare (optimize (speed 3) (safety 0) (debug 0)))
     (define-component ecs :name 'string)
     (testing-expect-equal (get-type-of-component ecs :name) 'string)
 
@@ -272,16 +276,40 @@
     (set-component ecs entity :health 10)
     (set-component ecs entity :name "john")
 
-    (testing-expect-error (error "error"))
+    (testing-expect-equal (get-component ecs entity :health) 10)
+    (testing-expect-equal (get-component ecs entity :name) "john")
+
+    (testing-expect-error (get-component ecs 10000 :health))
+    (testing-expect-error (get-component ecs 1 :foobar))
+    (testing-expect-error (get-component ecs 10000 :foobar))
+
+    (let* ((ids (loop :for i :from 0 :to 50000 :collect (new-entity ecs)))
+           )
+
+      (loop :for i :from 0 :below (length ids)
+            :for id :in ids
+            :do (progn
+                  (set-component ecs id :health i)
+                  (set-component ecs id :name "bob")
+                  ))
+
+      (loop :for i :from 0 :below (length ids)
+            :for id :in ids
+            :do (progn
+                  (testing-expect-equal (get-component ecs id :health) i)
+                  (testing-expect-equal (get-component ecs id :name) "bob")
+                  ))
     )
   )
+  )
+
 
 
 (defparameter *ecs* (make-instance 'ecs))
 (defun main()
   (format t "~a~%" *ecs*)
-  (define-component *ecs* 'name 'integer)
-  (define-component *ecs* 'id 'integer)
+  (define-component *ecs* :name 'integer)
+  (define-component *ecs* :id 'integer)
   (format t "~a~%" *ecs*)
   )
 ;(set-componet *ecs* 0 'id)

@@ -1,4 +1,5 @@
-  (declaim (optimize (debug 3) (safety 3)))
+(declaim (optimize (debug 3) (safety 3)))
+;(declaim (optimize (speed 3) (debug 0) (safety 0)))
 
 
 
@@ -87,16 +88,19 @@
      ))
 
   (defun print-test-case (case)
-    (format t "~46a " (form case))
-    (print-yellow "-->  ")
     (if (equalp (result case) (expected case))
       (progn
+
         (incf *total-pass*)
-        (print-green "[~a]~%" (result case))
+        ;(format t "~46a " (form case))
+        ;(print-yellow "-->  ")
+        ;(print-green "[~a]~%" (result case))
         ;(print-green "[PASS]~%")
         )
       (progn
         (incf *total-fail*)
+        (format t "~46a " (form case))
+        (print-yellow "-->  ")
         (print-red "[~a]" (result case))
         (print-red "   (expected [~a])~%" (expected case))
         (unless (and (null (line case)) (null (file case)))
@@ -124,8 +128,8 @@
       (make-instance
          'test-case
          :form (quote ,form)
-         :result (handler-case (progn ,form 'no-error-occurs) (t () 'error-occurs))
-         :expected (if ,expect-error 'error-occurs 'no-error-occurs)
+         :result (handler-case (progn ,form '<no-error-occurs>) (t () '<error-occurs>))
+         :expected (if ,expect-error '<error-occurs> '<no-error-occurs>)
          :file nil ;#.(or *compile-file-truename* *load-truename*) ;nil ;SB-EXT:COMPILE-FILE-LINE
          :line nil ;SB-EXT:COMPILE-FILE-POSITION
          ))
