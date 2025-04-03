@@ -3,179 +3,182 @@
 
 
 
-  ;;;; ===========ANSI IO===========
-  (defmacro eval-always (&body body)
-    `(eval-when (:compile-toplevel :load-toplevel :execute) 
-      ,@body
-      ))
-
-  (eval-always
-    (defmacro ansi-esc (escape-code)
-      `(concatenate 'string (string (name-char "esc")) ,escape-code))
-
-    (defun concat-symbols (&rest symbols)
-      (intern (apply 'concatenate 'string (mapcar #'symbol-name symbols))))
-  )
-
-  (defparameter +ansi-reset+   (ansi-esc "[0m"))
-
-  (defmacro def-ansi-color (name escape-sequence)
-    (let*
-      ((constant-name (concat-symbols '+ansi- name '+))
-       (function-name (concat-symbols 'print- name))
-       )
-      `(progn
-         (defparameter ,constant-name (ansi-esc ,escape-sequence))
-         (defun ,function-name (fmt &rest args)
-           (format t "~a" ,constant-name)
-           (apply 'format t fmt args)
-           (format t "~a" +ansi-reset+))
-         )
-      )
-    )
-
-  (def-ansi-color red     "[31m")
-  (def-ansi-color green   "[32m")
-  (def-ansi-color yellow  "[33m")
-  (def-ansi-color blue    "[34m")
-  (def-ansi-color magenta "[35m")
-  (def-ansi-color cyan    "[36m")
-
-  (defun print-header (string &optional (char #\=) (color +ansi-yellow+))
-    (let*
-      ((min-width 50)
-       (len (length string))
-       (required-pad (- min-width len))
-       (left-pad (floor (/ required-pad 2)))
-       (right-pad (floor (/ (1+ required-pad) 2)))
-       )
-      (dotimes (_ left-pad) (format t "~a" char))
-      (format t "~a~a~a" color string +ansi-reset+)
-      (dotimes (_ right-pad) (format t "~a" char))
-      (format t "~%")
-      ))
-
-
-  (defun print-subheader (string)
-    (let*
-      ((min-width 50)
-       (len (length string))
-       (required-pad (- min-width len))
-       (left-pad (floor (/ required-pad 2)))
-       (right-pad (floor (/ (1+ required-pad) 2)))
-       )
-      (dotimes (_ left-pad) (format t "-"))
-      (print-magenta string)
-      (dotimes (_ right-pad) (format t "-"))
-      (format t "~%")
-      ))
-
-  ;;;; ===========TESTING===========
-
-
-  (defvar *test-results* '())
-  (defvar *tests* '())
-  (defvar *total-pass* 0)
-  (defvar *total-fail* 0)
-
-  (defclass test-case ()
-    ((result :accessor result :initarg :result :initform (error "mandatory initialization"))
-     (expected :accessor expected :initarg :expected :initform t)
-
-     (form :accessor form :initarg :form)
-     (file :accessor file :initarg :file)
-     (line :accessor line :initarg :line)
+;;;; ===========ANSI IO===========
+(defmacro eval-always (&body body)
+  `(eval-when (:compile-toplevel :load-toplevel :execute) 
+     ,@body
      ))
 
-  (defun print-test-case (case)
-    (if (equalp (result case) (expected case))
-      (progn
+(eval-always
+  (defmacro ansi-esc (escape-code)
+    `(concatenate 'string (string (name-char "esc")) ,escape-code))
 
-        (incf *total-pass*)
-        ;(format t "~46a " (form case))
-        ;(print-yellow "-->  ")
-        ;(print-green "[~a]~%" (result case))
-        ;(print-green "[PASS]~%")
-        )
-      (progn
-        (incf *total-fail*)
-        (format t "~46a " (form case))
-        (print-yellow "-->  ")
-        (print-red "[~a]" (result case))
-        (print-red "   (expected [~a])~%" (expected case))
-        (unless (and (null (line case)) (null (file case)))
-          (format t "        See ~a line ~a~%" (file case) (line case))
-          )
+  (defun concat-symbols (&rest symbols)
+    (intern (apply 'concatenate 'string (mapcar #'symbol-name symbols))))
+  )
+
+(defparameter +ansi-reset+   (ansi-esc "[0m"))
+
+(defmacro def-ansi-color (name escape-sequence)
+  (let*
+    ((constant-name (concat-symbols '+ansi- name '+))
+     (function-name (concat-symbols 'print- name))
+     )
+    `(progn
+       (defparameter ,constant-name (ansi-esc ,escape-sequence))
+       (defun ,function-name (fmt &rest args)
+         (format t "~a" ,constant-name)
+         (apply 'format t fmt args)
+         (format t "~a" +ansi-reset+))
+       )
+    )
+  )
+
+(def-ansi-color red     "[31m")
+(def-ansi-color green   "[32m")
+(def-ansi-color yellow  "[33m")
+(def-ansi-color blue    "[34m")
+(def-ansi-color magenta "[35m")
+(def-ansi-color cyan    "[36m")
+
+(defun print-header (string &optional (char #\=) (color +ansi-yellow+))
+  (let*
+    ((min-width 50)
+     (len (length string))
+     (required-pad (- min-width len))
+     (left-pad (floor (/ required-pad 2)))
+     (right-pad (floor (/ (1+ required-pad) 2)))
+     )
+    (dotimes (_ left-pad) (format t "~a" char))
+    (format t "~a~a~a" color string +ansi-reset+)
+    (dotimes (_ right-pad) (format t "~a" char))
+    (format t "~%")
+    ))
+
+
+(defun print-subheader (string)
+  (let*
+    ((min-width 50)
+     (len (length string))
+     (required-pad (- min-width len))
+     (left-pad (floor (/ required-pad 2)))
+     (right-pad (floor (/ (1+ required-pad) 2)))
+     )
+    (dotimes (_ left-pad) (format t "-"))
+    (print-magenta string)
+    (dotimes (_ right-pad) (format t "-"))
+    (format t "~%")
+    ))
+
+;;;; ===========TESTING===========
+
+
+(defparameter *test-results* '())
+(defparameter *tests* '())
+(defparameter *total-pass* 0)
+(defparameter *total-fail* 0)
+
+(defclass test-case ()
+  ((result :accessor result :initarg :result :initform (error "mandatory initialization"))
+   (expected :accessor expected :initarg :expected :initform t)
+
+   (form :accessor form :initarg :form)
+   (file :accessor file :initarg :file)
+   (line :accessor line :initarg :line)
+   ))
+
+(defun print-test-case (case)
+  (if (equalp (result case) (expected case))
+    (progn
+
+      (incf *total-pass*)
+      ;(format t "~46a " (form case))
+      ;(print-yellow "-->  ")
+      ;(print-green "[~a]~%" (result case))
+      ;(print-green "[PASS]~%")
+      )
+    (progn
+      (incf *total-fail*)
+      (format t "~46a " (form case))
+      (print-yellow "-->  ")
+      (print-red "[~a]" (result case))
+      (print-red "   (expected [~a])~%" (expected case))
+      (unless (and (null (line case)) (null (file case)))
+        (format t "        See ~a line ~a~%" (file case) (line case))
         )
       )
-    case
     )
+  case
+  )
 
-  (defmacro define-test-case (form expected) 
-    `(print-test-case
-      (make-instance
-         'test-case
-         :form (quote ,form)
-         :result ,form
-         :expected ,expected
-         :file nil ;#.(or *compile-file-truename* *load-truename*) ;nil ;SB-EXT:COMPILE-FILE-LINE
-         :line nil ;SB-EXT:COMPILE-FILE-POSITION
-         ))
-    )
-
-  (defmacro define-erroring-test-case (form expect-error) 
-    `(print-test-case
-      (make-instance
-         'test-case
-         :form (quote ,form)
-         :result (handler-case (progn ,form '<no-error-occurs>) (t () '<error-occurs>))
-         :expected (if ,expect-error '<error-occurs> '<no-error-occurs>)
-         :file nil ;#.(or *compile-file-truename* *load-truename*) ;nil ;SB-EXT:COMPILE-FILE-LINE
-         :line nil ;SB-EXT:COMPILE-FILE-POSITION
-         ))
-    )
-
-
-  (defmacro testing-expect (form)
-    `(push (define-test-case ,form t) *test-results*))
-
-  (defmacro testing-expect-equal (form expected)
-    `(push (define-test-case ,form ,expected) *test-results*))
-
-  (defmacro testing-expect-error (form)
-    `(push (define-erroring-test-case ,form t)  *test-results*))
-
-  (defmacro testing-expect-no-error (form)
-    `(push (define-erroring-test-case ,form nil)  *test-results*))
-
-  (defmacro deftest (name &body body)
-    (setf *tests* (adjoin name *tests*))
-    (unless (symbolp name)
-      (error "Expected deftest name to be a symbol, found a ~a of value \"~a\""
-             (type-of name) name))
-    `(defun ,name ()
-       ,@body
+(defmacro define-test-case (form expected) 
+  `(print-test-case
+     (make-instance
+       'test-case
+       :form (quote ,form)
+       :result ,form
+       :expected ,expected
+       :file nil ;#.(or *compile-file-truename* *load-truename*) ;nil ;SB-EXT:COMPILE-FILE-LINE
+       :line nil ;SB-EXT:COMPILE-FILE-POSITION
        ))
-    
-  (defun run-tests ()
-    (print-header "RUNNING TESTS")
-    (let* ((*test-results* '())
-           (*total-pass* 0)
-           (*total-fail* 0)
-           )
-      (dolist (test *tests*)
-        ;(print-header (format nil "Beginning test section ~a" test) #\  +ansi-magenta+)
-        (print-magenta "SECTION ~a~%" test)
-        (funcall test)
-        )
-      (print-header "RESULTS")
-      (format t "Total passing test cases:")
-      (print-green "~a~%" *total-pass*)
-      (format t "Total failing test cases:")
-      (print-red "~a~%" *total-fail*)
-      (print-header "TESTING DONE")
+  )
+
+(defmacro define-erroring-test-case (form expect-error) 
+  `(print-test-case
+     (make-instance
+       'test-case
+       :form (quote ,form)
+       :result (handler-case (progn ,form '<no-error-occurs>) (t () '<error-occurs>))
+       :expected (if ,expect-error '<error-occurs> '<no-error-occurs>)
+       :file nil ;#.(or *compile-file-truename* *load-truename*) ;nil ;SB-EXT:COMPILE-FILE-LINE
+       :line nil ;SB-EXT:COMPILE-FILE-POSITION
+       ))
+  )
+
+
+(defmacro testing-expect (form)
+  `(nconc *test-results* (list (define-test-case ,form t))))
+
+(defmacro testing-expect-equal (form expected)
+  `(nconc *test-results* (list (define-test-case ,form ,expected))))
+
+(defmacro testing-expect-error (form)
+  `(nconc *test-results* (list (define-erroring-test-case ,form t))))
+
+(defmacro testing-expect-no-error (form)
+  `(nconc *test-results* (list (define-erroring-test-case ,form nil))))
+
+(defmacro deftest (name &body body)
+  ;(format t "defining new test \"~a\"~%" name)
+  ;(assert (not (member name *tests*)))
+  (unless (member name *tests*)
+    (push name *tests*))
+  (unless (symbolp name)
+    (error "Expected deftest name to be a symbol, found a ~a of value \"~a\""
+           (type-of name) name))
+  `(defun ,name ()
+     ,@body
+     ))
+
+(defun run-tests ()
+  (print-header "RUNNING TESTS")
+  (let* ((*test-results* '())
+         (*total-pass* 0)
+         (*total-fail* 0)
+         )
+    (dolist (test (reverse *tests*))
+      ;(print-header (format nil "Beginning test section ~a" test) #\  +ansi-magenta+)
+      (print-magenta "SECTION ~a~%" test)
+      (funcall test)
       )
+    (print-header "RESULTS")
+    (format t "Total passing test cases:")
+    (print-green "~a~%" *total-pass*)
+    (format t "Total failing test cases:")
+    (print-red "~a~%" *total-fail*)
+    (print-header "TESTING DONE")
     )
+  )
 
 
 

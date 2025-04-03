@@ -27,8 +27,8 @@
 
 (defclass sset ()
   ((dense :initarg :dense :accessor dense)
-   (sparse :initform (make-vec 'integer) :accessor sparse)
-   (dense-to-sparse :initform (make-vec 'integer) :accessor dense-to-sparse)
+   (sparse :initform (make-vec t) :accessor sparse)
+   (dense-to-sparse :initform (make-vec 'fixnum) :accessor dense-to-sparse)
    ))
 
 
@@ -57,29 +57,48 @@
   )
 
 (defun sset-extend (self new-max-index)
+  (incf new-max-index)
   (quick-properties
     (when (< self.sparse.length new-max-index)
       (loop :for i :from self.sparse.length :to new-max-index :do
-            (vec-push self.sparse -1))
-      )))
+            (vec-push self.sparse nil))
+      )
+      (assert (null (aref self.sparse new-max-index)))
+    )
+  )
 
+(declaim (ftype (function (sset fixnum t) t) sset-set))
 (defun sset-set (self i val)
-  (quick-properties
-    (if (null (orelse nil (sset-get self i)))
-      (let*
-        ((new-dense-index (sset-len self))
-         )
-        (vec-push self.dense val)
-        (vec-push self.dense-to-sparse i)
-        (sset-extend self i)
-        (setf (aref self.sparse i) new-dense-index)
-        )
-      (let*
-        ((dense-index (aref self.sparse i))
-         )
-        (setf (aref (dense self) dense-index) val)
-        )
-      )))
+  (if
+    (null (ignore-errors (aref (sparse self) i)))
+    (let* ((len (length (dense self)))
+           )
+      (sset-extend self i)
+      (vec-push (dense self) val)
+      (vec-push (dense-to-sparse self) i)
+      (assert (= (length (dense self)) 
+                 (length (dense-to-sparse self))))
+      (setf (aref (sparse self) i) len)
+      )
+    (setf (aref (dense self) (aref (sparse self) i)) val)))
+
+;(defun sset-set (self i val)
+;  (quick-properties
+;    (if (null (orelse nil (sset-get self i)))
+;      (let*
+;        ((new-dense-index (sset-len self))
+;         )
+;        (vec-push self.dense val)
+;        (vec-push self.dense-to-sparse i)
+;        (sset-extend self i)
+;        (setf (aref self.sparse i) new-dense-index)
+;        )
+;      (let*
+;        ((dense-index (aref self.sparse i))
+;         )
+;        (setf (aref (dense self) dense-index) val)
+;        )
+;      )))
 
 (declaim (ftype (function (sset fixnum) t) sset-remove))
 (defun sset-remove (self i)
@@ -244,15 +263,35 @@
   )
 
 (declaim (ftype (function (ecs fixnum keyword t) t) set-component))
-(defun set-component (self entity component-symbol value)
+(defun set-component (self id component-symbol value)
   (assert (typep value (get-type-of-component self component-symbol)))
-  (sset-set (gethash component-symbol (components self)) entity value)
+  (sset-set (gethash component-symbol (components self)) id value)
+  (symbol-macrolet
+    ((entry (gethash component-symbol (component-owners self)))
+     )
+    (setf entry (adjoin id entry))
+    )
   )
 
 (declaim (ftype (function (ecs fixnum keyword) t) get-component))
-(defun get-component (self entity component-symbol)
-  (sset-get (gethash component-symbol (components self)) entity)
+(defun get-component (self id component-symbol)
+  (sset-get (gethash component-symbol (components self)) id)
   )
+
+(declaim (ftype (function (ecs fixnum keyword) t) unset-component))
+(defun unset-component (self id component-symbol)
+  (sset-remove (gethash component-symbol (components self)) id)
+  (delete id (gethash component-symbol (component-owners self)))
+  )
+
+(defun find-entities (self &rest cts)
+  "returns a list of all entities that have given components"
+  (reduce #'intersection
+          (loop :for ct :in cts 
+                :collect (gethash ct (component-owners self)))
+          )
+  )
+
 
 
 (deftest
@@ -267,38 +306,46 @@
     (define-component ecs :health 'number)
     (testing-expect-equal (get-type-of-component ecs :health) 'number)
 
+    (define-component ecs :special 'boolean)
+
     (set-component ecs entity :health 10)
     (set-component ecs entity :name "john")
 
     (testing-expect-equal (get-component ecs entity :health) 10)
     (testing-expect-equal (get-component ecs entity :name) "john")
 
+    (unset-component ecs entity :health)
+    (testing-expect-error (get-component ecs entity :health))
+    (testing-expect-equal (get-component ecs entity :name) "john")
+
     (testing-expect-error (get-component ecs 10000 :health))
     (testing-expect-error (get-component ecs 1 :foobar))
     (testing-expect-error (get-component ecs 10000 :foobar))
 
-    (let* ((ids (loop :for i :from 0 :to 50000 :collect (new-entity ecs)))
+
+    (let* ((ids (loop :for i :from 0 :to 5000 :collect (new-entity ecs)))
+           (specials '())
            )
 
       (loop :for i :from 0 :below (length ids)
             :for id :in ids
             :do (set-component ecs id :health i)
-            )
-      (loop :for i :from 0 :below (length ids)
-            :for id :in ids
             :do (set-component ecs id :name "bob")
+            :when (= 0 (mod i 500))
+            :do (set-component ecs id :special nil)
+            :when (= 0 (mod i 500))
+            :do (push id specials)
             )
+      (testing-expect 
+        (loop :for i :from 0 :below (length ids)
+              :for id :in ids
+              :always (equalp (get-component ecs id :health) i)
+              :always (equalp (get-component ecs id :name) "bob")
+              ))
+      (testing-expect-equal (find-entities ecs :special) specials)
+      )
 
-      (loop :for i :from 0 :below (length ids)
-            :for id :in ids
-            :do (testing-expect-equal (get-component ecs id :health) i)
-            )
-      (loop :for i :from 0 :below (length ids)
-            :for id :in ids
-            :do (testing-expect-equal (get-component ecs id :name) "bob")
-            )
     )
-  )
   )
 
 
