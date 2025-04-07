@@ -210,7 +210,7 @@
    (highest-id :initform 0 :accessor highest-id :type fixnum)
    ))
 
-(declaim (ftype (function (ecs) fixnum) new-entity))
+(declaim (ftype (function (ecs) (values fixnum &optional)) new-entity))
 (defun new-entity (ecs)
   "Creates a new entity and returns its id"
   (quick-properties
@@ -348,14 +348,57 @@
     )
   )
 
+(declaim (ftype (function (ecs fixnum) string) dump-components))
+(defun dump-components (self id)
+  "Returns a formatted string showing all of the components of a given entity"
+  (let* ((result '())
+         )
+    (with-hash-table-iterator
+      (generator-fn (components self))
+      (loop     
+        (multiple-value-bind (more? key value) (generator-fn)
+           (unless more? (return))
+           (push (format nil "~a: ~a~%" key (ignore-errors (sset-get value id))) result)
+         )))
+    (reduce #'(lambda (a b) (concatenate 'string a b)) result))
+  )
+
+(defun print-all-components (self ids)
+  (if (listp ids)
+    (dolist (id ids) (print-all-components self id))
+    (format t "~a~%" (dump-components self ids)))
+  )
+   
+
 
 
 (defparameter *ecs* (make-instance 'ecs))
 (defun main()
-  (format t "~a~%" *ecs*)
-  (define-component *ecs* :name 'integer)
-  (define-component *ecs* :id 'integer)
-  (format t "~a~%" *ecs*)
-  )
+  (define-component *ecs* :address 'string)
+  (define-component *ecs* :phone-number 'string)
+  (define-component *ecs* :email 'string)
+  (define-component *ecs* :blacklisted 'bit)
+  (define-component *ecs* :business-name 'string)
+
+  (let* 
+    ((a (new-entity *ecs*))
+     (b (new-entity *ecs*))
+     )
+     (set-component *ecs* a :business-name "M. Corp")
+     (set-component *ecs* a :blacklisted 1)
+     (set-component *ecs* a :phone-number "123-456-7890")
+     (set-component *ecs* a :email "contact@mcorp.com")
+     (set-component *ecs* a :address "123 Foo Street, Bar City")
+
+     (set-component *ecs* b :business-name "F. Corp")
+     (set-component *ecs* b :blacklisted 1)
+     (set-component *ecs* b :phone-number "999-999-9999")
+     (set-component *ecs* b :email "contact@fcorp.com")
+     (set-component *ecs* b :address "123 Bar Street, Fooville")
+
+     (print-all-components *ecs*
+       (find-entities *ecs* :business-name :blacklisted))
+  ))
 ;(set-componet *ecs* 0 'id)
 ;(format t "main loaded~%")
+
