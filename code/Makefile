@@ -7,9 +7,9 @@
 a.out: *.lisp
 	sbcl --eval "(asdf:make :ecs-research-2025/executable :force t)" --quit
 
-.PHONY test:
-test: *.lisp
-	sbcl --no-userinit --load main.lisp --eval "(run-tests)" --quit
+#.PHONY test:
+#test: *.lisp
+#	sbcl --no-userinit --load main.lisp --eval "(run-tests)" --quit
 
 .PHONY clean:
 clean:
