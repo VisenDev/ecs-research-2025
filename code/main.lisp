@@ -28,7 +28,7 @@
 (defclass sset ()
   ((dense :initarg :dense :accessor dense)
    (sparse :initform (make-vec t) :accessor sparse)
-   (dense-to-sparse :initform (make-vec 'fixnum) :accessor dense-to-sparse)
+   (dense-to-sparse :initform (make-vec 'integer) :accessor dense-to-sparse)
    ))
 
 
@@ -67,7 +67,7 @@
     )
   )
 
-(declaim (ftype (function (sset fixnum t) t) sset-set))
+(declaim (ftype (function (sset integer t) t) sset-set))
 (defun sset-set (self i val)
   (if
     (null (ignore-errors (aref (sparse self) i)))
@@ -100,7 +100,7 @@
 ;        )
 ;      )))
 
-(declaim (ftype (function (sset fixnum) t) sset-remove))
+(declaim (ftype (function (sset integer) t) sset-remove))
 (defun sset-remove (self i)
   (quick-properties
     ;(when (= 1 self.dense.length)
@@ -206,11 +206,11 @@
                      :accessor component-owners
                      :documentation "maps each component-symbol to entities with that type")
    (components :initform (make-hash-table) :accessor components)
-   (free-ids :initform (make-vec 'fixnum) :accessor free-ids)
-   (highest-id :initform 0 :accessor highest-id :type fixnum)
+   (free-ids :initform (make-vec 'integer) :accessor free-ids)
+   (highest-id :initform 0 :accessor highest-id :type integer)
    ))
 
-(declaim (ftype (function (ecs) (values fixnum &optional)) new-entity))
+(declaim (ftype (function (ecs) (values integer &optional)) new-entity))
 (defun new-entity (ecs)
   "Creates a new entity and returns its id"
   (quick-properties
@@ -262,7 +262,7 @@
     (assert (equalp component-type (get-type-of-component ecs component-symbol)))
   )
 
-(declaim (ftype (function (ecs fixnum keyword t) t) set-component))
+(declaim (ftype (function (ecs integer keyword t) t) set-component))
 (defun set-component (self id component-symbol value)
   (assert (typep value (get-type-of-component self component-symbol)))
   (sset-set (gethash component-symbol (components self)) id value)
@@ -273,12 +273,12 @@
     )
   )
 
-(declaim (ftype (function (ecs fixnum keyword) t) get-component))
+(declaim (ftype (function (ecs integer keyword) t) get-component))
 (defun get-component (self id component-symbol)
   (sset-get (gethash component-symbol (components self)) id)
   )
 
-(declaim (ftype (function (ecs fixnum keyword) t) unset-component))
+(declaim (ftype (function (ecs integer keyword) t) unset-component))
 (defun unset-component (self id component-symbol)
   (sset-remove (gethash component-symbol (components self)) id)
   (delete id (gethash component-symbol (component-owners self)))
@@ -348,7 +348,7 @@
     )
   )
 
-(declaim (ftype (function (ecs fixnum) string) dump-components))
+(declaim (ftype (function (ecs integer) string) dump-components))
 (defun dump-components (self id)
   "Returns a formatted string showing all of the components of a given entity"
   (let* ((result '())
@@ -369,9 +369,6 @@
     (format t "~a~%" (dump-components self ids)))
   )
    
-
-
-
 (defparameter *ecs* (make-instance 'ecs))
 (defun main()
   (define-component *ecs* :address 'string)

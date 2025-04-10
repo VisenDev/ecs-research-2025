@@ -4,7 +4,7 @@
   :version "0.0.1"
   :author "Robert Burnett"
   :license "MIT"
-  :depends-on ("uiop" "asdf" "clog")
+  :depends-on ("uiop" "asdf")
   :components
   ((:file "macros")
    (:file "testing")
